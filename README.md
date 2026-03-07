@@ -1,489 +1,185 @@
-# QuantumShield: Post-Quantum Security Platform
+# QuantumShield
 
-**Enterprise B2B SaaS Dashboard for KEMTLS Testing and Monitoring**
+**Post-Quantum Secure OpenID Connect using KEMTLS**
 
----
+A research-grade prototype implementing a fully functional OpenID Connect identity provider secured using Post-Quantum Cryptography and a KEMTLS transport layer.
 
 ## Overview
 
-QuantumShield is a production-grade testing and monitoring platform for KEMTLS (Key Encapsulation Mechanism-based Transport Layer Security), a post-quantum secure transport protocol that completely replaces traditional TLS.
+QuantumShield demonstrates the feasibility of post-quantum secure identity infrastructure by combining:
 
-**Core Technology:**
-- **Kyber768** - NIST-standardized post-quantum Key Encapsulation Mechanism
-- **Dilithium3** - NIST-standardized post-quantum digital signatures  
-- **AES-256-GCM** - Symmetric authenticated encryption
-- **Raw TCP Transport** - No TLS/SSL in the stack
+- **KEMTLS**: KEM-based TLS handshake using Kyber768 (ML-KEM-768) for key encapsulation
+- **Post-Quantum Signatures**: Dilithium3 (ML-DSA-65) for JWT signing and server authentication
+- **OIDC from Scratch**: Full Authorization Code Flow with PKCE, implemented without OAuth/OIDC frameworks
+- **Real PQ Cryptography**: All operations use liboqs (Open Quantum Safe) — no simulated randomness
 
----
+## Cryptographic Algorithms
+
+| Component | Algorithm | NIST Level | Standard |
+|-----------|-----------|-----------|----------|
+| Key Encapsulation | Kyber768 | Level 3 | ML-KEM-768 (FIPS 203) |
+| Digital Signatures | Dilithium3 | Level 3 | ML-DSA-65 (FIPS 204) |
+| Symmetric Encryption | AES-256-GCM | — | NIST SP 800-38D |
+| Key Derivation | HKDF-SHA256 | — | RFC 5869 |
+
+## Architecture
+
+```
+quantumshield/
+├── quantumshield-backend/          # FastAPI backend
+│   └── app/
+│       ├── pqcrypto/               # Kyber768 KEM + Dilithium3 signatures (liboqs)
+│       ├── kemtls/                 # KEMTLS protocol engine + AES-256-GCM channel
+│       ├── oidc/                   # OIDC Authorization Code Flow + PKCE
+│       ├── tokens/                 # JWT engine with Dilithium3 signing + JWKS
+│       ├── benchmarking/           # PQ vs classical performance benchmarks
+│       ├── scanner/                # Quantum readiness TLS scanner
+│       └── api/                    # FastAPI routes
+├── quantumshield-frontend/         # React + TypeScript dashboard
+│   └── src/
+│       └── components/
+│           ├── StatusPage.tsx       # System status & crypto config
+│           ├── KEMTLSPage.tsx       # KEMTLS handshake monitor
+│           ├── AuthPage.tsx         # OIDC authentication flow
+│           ├── BenchmarksPage.tsx   # Benchmark results & charts
+│           └── ScannerPage.tsx      # Quantum readiness scanner
+└── docs/
+    ├── Architecture.md
+    ├── TechnicalDocumentation.pdf
+    └── BenchmarkResults.pdf
+```
 
 ## Quick Start
 
 ### Prerequisites
 
-```bash
-python3 -m venv venv
+- Python 3.12+
+- Node.js 18+
+- liboqs (Open Quantum Safe) shared library
 
-source venv/bin/activate
-
-
-cd web_demo
-pip install -r requirements.txt
-pip install flask flask-sock liboqs cryptography pyjwt
-```
-
-### Run the Dashboard
+### Install liboqs
 
 ```bash
-cd QuantumShield/web_demo
-python app_enhanced.py
+git clone --depth 1 https://github.com/open-quantum-safe/liboqs.git
+cd liboqs && mkdir build && cd build
+cmake -GNinja -DCMAKE_INSTALL_PREFIX=/usr/local -DBUILD_SHARED_LIBS=ON ..
+ninja && sudo ninja install && sudo ldconfig
 ```
 
-Open browser to: `http://localhost:9000`
-
-The dashboard launches directly with:
-- Real-time test monitoring
-- Performance metrics visualization
-- Live event streaming via WebSocket
-- Dark/light theme support
-
-
-Expected output:
-- KEMTLS handshake completion
-- OIDC authorization flow over KEMTLS
-- JWT token issuance
-- No TLS/SSL anywhere in the stack
-
----
-
-## Project Structure
-
-```
-QuantumShield/
-│
-├── README.md  
-│   - Project overview, setup instructions,architecture summary,
-│     and demo execution steps.
-│
-├── auth_server/
-│   ├── auth_server.py  
-│   │   - Core OpenID Connect authorization server logic.
-│   │   - Handles /authorize and /token endpoints.
-│   │   - Integrates KEMTLS-secured transport layer.
-│   │
-│   ├── jwks.py  
-│   │   - Post-quantum public key distribution (JWKS).
-│   │   - Exposes Dilithium public key for token verification.
-│   │
-│   ├── kemtls_server.py  
-│   │   - Bridges OIDC application layer with KEMTLS transport.
-│   │   - Ensures secure session establishment.
-│   │
-│   └── token_service.py  
-│       - Generates and signs ID Tokens using Dilithium3.
-│       - Maintains JWT structure compliance with OIDC.
-│
-├── crypto/
-│   └── symmetric.py  
-│       - Symmetric encryption utilities (AES-based).
-│       - Used after KEM-derived shared secret establishment.
-│
-├── kemtls/
-│   ├── channel.py  
-│   │   - Secure encrypted communication channel abstraction.
-│   │   - Wraps symmetric encryption over shared secret.
-│   │
-│   ├── handshake.py  
-│   │   - Implements post-quantum KEMTLS handshake protocol.
-│   │   - Handles key encapsulation/decapsulation flow.
-│   │
-│   ├── kemtls_client.py  
-│   │   - Client-side KEMTLS session initiation logic.
-│   │   - Establishes secure channel with server.
-│   │
-│   └── kemtls_server.py  
-│       - Server-side KEMTLS handshake handler.
-│       - Processes encapsulated key material and derives session key.
-│
-├── policy/
-│   ├── crypto_policy.json  
-│   │   - Runtime cryptographic configuration file.
-│   │   - Defines active KEM, signature, and hash algorithms.
-│   │
-│   └── policy_loader.py  
-│       - Loads and validates active cryptographic policy.
-│       - Enables crypto agility without modifying core logic.
-│
-└── web_demo/
-    ├── app_enhanced.py   
-    │   - Serves dashboard UI and exposes API endpoints.
-    │   - Integrates live metrics and security state.
-    │
-    ├── requirements.txt  
-    │   - Python dependencies for web dashboard module.
-    │
-    ├── static/
-    │   ├── dashboard.css  
-    │   │   - Production-grade dashboard styling.
-    │   │   - Enterprise UI design.
-    │   │
-    │   └── dashboard.js  
-    │       - Frontend logic.
-    │       - Fetches metrics and security data from backend APIs.
-    │
-    └── templates/
-        └── dashboard.html  
-            - Main dashboard interface.
-            - Displays cryptographic posture and system metrics.
-
-
----
-
-## QuantumShield Dashboard
-
-### Features
-
-**Test Management:**
-- Pre-configured test cases (Protocol, Security, Performance, Failure Injection)
-- Custom test case creation with configurable parameters
-- Batch test execution
-- Real-time status updates
-
-**Monitoring:**
-- System metrics (CPU, memory, network)
-- Performance analytics (latency, throughput)
-- Connection tracking
-- Live event logs
-
-**Results Analysis:**
-- Aggregated test results
-- Success/failure statistics  
-- Performance trends
-- Detailed test reports
-
-**User Experience:**
-- Production-grade B2B SaaS design (Stripe/Notion aesthetic)
-- Dark/light theme toggle
-- Responsive layout
-- Real-time WebSocket updates
-- Professional data visualization
-
-### Test Types
-
-1. **Protocol Tests** - Verify KEMTLS handshake correctness
-2. **Security Tests** - Validate cryptographic operations
-3. **Performance Tests** - Measure latency and throughput
-4. **Failure Injection Tests** - Test error handling
-
-### Custom Test Configuration
-
-```json
-{
-  "name": "Custom Protocol Test",
-  "type": "protocol",
-  "description": "Testing Kyber768 + Dilithium3",
-  "config": {
-    "kem": "Kyber768",
-    "signature": "Dilithium3",
-    "failureMode": "none"
-  }
-}
-```
-
-**Failure Modes:**
-- `none` - Normal operation (tests should pass)
-- `invalid_signature` - Inject signature failure
-- `invalid_kem` - Inject KEM failure
-- `network_timeout` - Simulate network issues
-
----
-
-## KEMTLS Protocol
-
-### Architecture
-
-```
-Application Layer (OIDC)
-         ↓
-Secure Channel (AES-256-GCM)
-         ↓
-KEMTLS Handshake (Kyber768 + Dilithium3)
-         ↓
-Raw TCP Transport (NO TLS)
-```
-
-### Handshake Flow
-
-```
-Client                          Server
-  |                               |
-  |<-------- SERVER_HELLO --------|
-  |    (kem_pk, sig_pk)           |
-  |                               |
-  | Encapsulate                   |
-  | ct, ss = KEM.Encap(kem_pk)    |
-  |                               |
-  |--------- CLIENT_KEM --------->|
-  |    (ciphertext)               |
-  |                               |
-  |  Decapsulate                  |
-  |  ss = KEM.Decap(ct)           |
-  |  Sign transcript              |
-  |                               |
-  |<-------- SERVER_AUTH ---------|
-  |    (signature)                |
-  |                               |
-  | Verify signature              |
-  |                               |
-  |=== Secure Channel Established ===|
-```
-
-### Cryptographic Specifications
-
-| Component | Algorithm | Security Level | Key Size |
-|-----------|-----------|----------------|----------|
-| Key Exchange | Kyber768 | NIST Level 3 | 1,184 bytes (pk) |
-| Authentication | Dilithium3 | NIST Level 3 | 1,952 bytes (pk) |
-| Encryption | AES-256-GCM | 256-bit | 32 bytes |
-| KEM Ciphertext | Kyber768 | - | 1,088 bytes |
-| Signature | Dilithium3 | - | ~3,293 bytes |
-
-### Security Properties
-
-- **Confidentiality** - AES-256-GCM authenticated encryption
-- **Authentication** - Dilithium3 digital signatures
-- **Forward Secrecy** - Fresh KEM encapsulation per session
-- **Post-Quantum Security** - Resistant to quantum attacks
-- **Integrity** - GCM authentication tags prevent tampering
-
----
-
-## Performance Characteristics
-
-**Handshake Performance:**
-- Total latency: ~2.8ms (localhost)
-- KEM encapsulation: ~0.15ms
-- KEM decapsulation: ~0.12ms
-- Signature generation: ~1.5ms
-- Signature verification: ~0.8ms
-
-**Bandwidth Overhead:**
-- Handshake total: ~7.5 KB
-- Per-message overhead: 32 bytes (frame + nonce + tag)
-
-**Comparison with TLS 1.3:**
-- Handshake: 2.33x slower
-- Data throughput: 95% efficiency
-- CPU overhead: 2.4x per handshake
-- Bandwidth: +75% for handshake
-
-See `BenchmarkResults.md` for detailed performance analysis.
-
----
-
-## Documentation
-
-### Technical Documentation
-
-**TechnicalDocumentation.md** - Research-grade documentation covering:
-- System architecture with Mermaid diagrams
-- Cryptographic design rationale
-- Protocol specification
-- Security analysis
-- Implementation details
-
-**BenchmarkResults.md** - Comprehensive performance analysis:
-- Latency measurements with statistical analysis
-- Protocol overhead breakdown
-- Comparison with PQ-TLS implementations
-- Scalability analysis
-- Production deployment guidance
-
-**KEMTLS_IMPLEMENTATION_GUIDE.md** - Implementation guide:
-- Step-by-step protocol implementation
-- Code examples
-- Verification methods
-- Common pitfalls
-
----
-
-## Verification: No TLS in Stack
-
-### Method 1: OpenSSL Test
+### Backend
 
 ```bash
-openssl s_client -connect localhost:9999
+cd quantumshield-backend
+poetry install
+poetry run fastapi dev app/main.py --port 8000
 ```
 
-**Expected:** Connection failure with "wrong version number" (proves no TLS handshake)
-
-### Method 2: Code Inspection
+### Frontend
 
 ```bash
-grep -r "import ssl" kemtls_*.py        # No results
-grep -r "https://" kemtls_*.py          # No results
-grep -r "ssl_context" kemtls_*.py       # No results
+cd quantumshield-frontend
+npm install
+npm run dev
 ```
 
-### Method 3: Network Analysis
+Open http://localhost:5173 to access the dashboard.
 
-Using Wireshark on port 9999:
-- No TLS ClientHello/ServerHello messages
-- No X.509 certificate exchanges
-- Only encrypted KEMTLS protocol data
+## API Endpoints
 
----
+### OIDC Endpoints
 
-## Key Differences: TLS vs KEMTLS
+| Endpoint | Description |
+|----------|-------------|
+| `GET /.well-known/openid-configuration` | OpenID Provider Configuration |
+| `POST /authorize` | Authorization endpoint |
+| `POST /token` | Token endpoint (auth code + refresh) |
+| `GET /userinfo` | UserInfo endpoint |
+| `GET /jwks.json` | JWKS with Dilithium3 public key |
+| `POST /register` | Dynamic client registration |
 
-| Aspect | TLS 1.3 | QuantumShield KEMTLS |
-|--------|---------|----------------------|
-| Transport | HTTPS/SSL | Raw TCP |
-| Key Exchange | ECDH | Kyber768 (PQ-secure) |
-| Authentication | RSA/ECDSA | Dilithium3 (PQ-secure) |
-| Certificates | X.509 Required | None |
-| Handshake Size | ~4.3 KB | ~7.5 KB |
-| Quantum Resistance | Vulnerable | Secure |
-| Implementation | Library-based | Custom protocol |
+### KEMTLS Endpoints
 
----
+| Endpoint | Description |
+|----------|-------------|
+| `POST /api/kemtls/handshake` | Perform KEMTLS handshake |
+| `GET /api/kemtls/sessions` | List KEMTLS sessions |
+| `POST /api/kemtls/encrypt-test` | Test AES-256-GCM channel |
 
-## Development
+### Benchmark Endpoints
 
-### Running Tests
+| Endpoint | Description |
+|----------|-------------|
+| `POST /api/benchmarks/run?iterations=N` | Run full benchmark suite |
+| `POST /api/benchmarks/quick` | Quick benchmark (10 iterations) |
+| `POST /api/benchmarks/report` | Generate BenchmarkResults.pdf |
+| `POST /api/benchmarks/technical-docs` | Generate TechnicalDocumentation.pdf |
 
-Access the dashboard at `http://localhost:9000` to:
-1. View pre-configured test cases
-2. Create custom tests
-3. Run individual or batch tests
-4. Monitor real-time results
-5. Analyze performance metrics
+### Scanner Endpoints
 
-### Architecture Components
+| Endpoint | Description |
+|----------|-------------|
+| `POST /api/scanner/scan` | Scan domains for quantum readiness |
 
-**Backend (Flask):**
-- REST API for test management
-- WebSocket for real-time updates
-- Test execution engine
-- Metrics collection
+## KEMTLS Handshake Flow
 
-**Frontend:**
-- Production-grade UI (Inter font, refined design system)
-- Real-time dashboard updates
-- Interactive test controls
-- Performance visualization
+```
+Client                              Server
+  |                                    |
+  |──── ClientHello ──────────────────>|  Supported algorithms
+  |                                    |
+  |<──── ServerHello ─────────────────|  Kyber768 public key + Dilithium3 key
+  |                                    |
+  |──── ClientKEMEncap ──────────────>|  Encapsulated shared secret
+  |                                    |
+  |      ServerKEMDecap               |  Server decapsulates shared secret
+  |                                    |
+  |<──── ServerAuth ──────────────────|  Dilithium3 signed transcript
+  |                                    |
+  |      ClientVerify                  |  Verify signature
+  |                                    |
+  |<═══ AES-256-GCM Secure Channel ═══>|  HKDF-derived session key
+```
 
-**KEMTLS Core:**
-- Protocol implementation (`kemtls/handshake.py`)
-- Secure channel (`kemtls/channel.py`)
-- Server/client implementations
+## OIDC Flow
 
----
+The system implements the full Authorization Code Flow with PKCE:
 
-## Production Considerations
+1. **PKCE Generation**: Client generates code_verifier and code_challenge (S256)
+2. **Authorization Request**: Client requests authorization with scope, state, nonce
+3. **Token Exchange**: Authorization code exchanged for tokens with PKCE verification
+4. **Token Verification**: All tokens signed and verified with Dilithium3
 
-This is a **research prototype**. For production deployment, implement:
+## Benchmarking
 
-**Infrastructure:**
-- Connection pooling and keep-alive
-- Load balancing
-- Horizontal scaling
-- CDN for static assets
+The system benchmarks both post-quantum and classical operations:
 
-**Security:**
-- Automated key distribution mechanism
-- Rate limiting and DoS protection
-- Security audit and formal verification
-- Side-channel attack mitigation
+- **Kyber768**: Key generation, encapsulation, decapsulation
+- **Dilithium3**: Key generation, signing, verification
+- **RSA-2048**: Key generation, signing, verification (comparison)
+- **X25519**: Key generation, key exchange (comparison)
+- **KEMTLS**: Full handshake latency
+- **JWT**: Generation and verification with Dilithium3
 
-**Performance:**
-- Session resumption (90% handshake reduction)
-- C/Rust rewrite of hot paths
-- Hardware acceleration for PQC operations
-- Caching layer
+All timing uses `time.perf_counter()` with configurable iterations (10/100/1000).
 
-**Operational:**
-- Monitoring and alerting
-- Logging and audit trails
-- Backup and recovery
-- Key rotation policies
+## Quantum Readiness Scanner
 
----
+Scans external domains' TLS configurations and classifies algorithms:
 
-## Recent Updates
+| Classification | Algorithms |
+|---------------|------------|
+| Quantum Vulnerable | RSA, ECDSA, ECDHE, DHE |
+| Quantum Resistant | ML-KEM, Dilithium, FALCON, SPHINCS+ |
 
-**Version 1.0 (February 2026):**
-- Rebranded to QuantumShield for C3iHub
-- Production-grade UI redesign with dark/light themes
-- Removed login - direct dashboard access
-- Fixed critical bug in custom test execution logic
-- Added comprehensive technical and benchmark documentation
-- Enhanced design system with professional aesthetics
+## Security Notes
 
----
+This is a **research prototype** for demonstrating post-quantum secure identity infrastructure. It is not intended for production use. Key limitations:
 
-## FAQ
-
-**Q: Is this real KEMTLS or encryption on top of TLS?**  
-A: This is real KEMTLS over raw TCP sockets. TLS is completely removed from the stack.
-
-**Q: How is this verified?**  
-A: Multiple verification methods - OpenSSL tests, network captures, code inspection all confirm no TLS.
-
-**Q: What NIST standards are used?**  
-A: Kyber768 and Dilithium3, both NIST PQC standardized algorithms (2024).
-
-**Q: Can I use this in production?**  
-A: This is a research prototype. See "Production Considerations" section for requirements.
-
-**Q: Why no certificates?**  
-A: KEMTLS uses long-term signature keys for authentication instead of X.509 PKI, simplifying deployment.
-
-**Q: How does performance compare to TLS?**  
-A: Handshake is 2.3x slower, but data transfer maintains 95% throughput efficiency. See BenchmarkResults.md.
-
----
-
-## Support and Resources
-
-**Documentation:**
-- Technical implementation: `TechnicalDocumentation.md`
-- Performance analysis: `BenchmarkResults.md`
-- Protocol guide: `KEMTLS_IMPLEMENTATION_GUIDE.md`
-
-**Interactive Tools:**
-- Dashboard: `http://localhost:9000`
-- Comparison script: `python compare_tls_vs_kemtls.py`
-
----
-
-## Technology Stack
-
-**Cryptography:**
-- liboqs 0.8+ (Kyber768, Dilithium3)
-- cryptography 41.0+ (AES-GCM)
-- pyjwt (JWT tokens)
-
-**Backend:**
-- Python 3.8+
-- Flask 3.0
-- Flask-Sock (WebSocket)
-
-**Frontend:**
-- HTML5/CSS3/JavaScript
-- Inter font family
-- Font Awesome icons
-- Native WebSocket API
-
----
+- KEMTLS operates above TCP as an application-layer protocol
+- No X.509 PQ certificate chain
+- Simplified key management (no HSM)
+- Side-channel resistance not evaluated
 
 ## License
 
-Research and Educational Use
-
----
-
-## Status
-
-**Production-Ready Dashboard** | **Research Prototype KEMTLS Implementation**
-
-Built with Python, liboqs (NIST PQC), and modern web technologies.
+Research prototype — for educational and evaluation purposes.
