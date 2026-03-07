@@ -1,0 +1,3 @@
+node_modules/\ndist/\n.env\n__pycache__/\n*.pyc\n.venv/\npoetry.lock\n*.egg-info/\n.cache/\n/home/ubuntu/liboqs/\n/home/ubuntu/_oqs/
+__pycache__/
+*.pyc
